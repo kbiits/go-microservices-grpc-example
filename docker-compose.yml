@@ -1,0 +1,72 @@
+version: '3.7'
+
+services:
+  ms-advice:
+    container_name: 'advice-service'
+    build:
+      context: ./advice
+    networks:
+      - microservices
+    ports:
+      - 50000:50000
+    restart: always
+    env_file:
+      - ./advice/.env
+    depends_on:
+      - 'postgres'
+  ms-user:
+    container_name: 'user-service'
+    build:
+      context: ./user
+    networks:
+      - microservices
+    ports:
+      - 50051:50051
+    restart: always
+    env_file:
+      - ./user/.env
+    depends_on:
+      - 'mongodb'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  postgres:
+    container_name: 'postgres-ms-advice'
+    image: postgres:14-alpine
+    restart: always
+    env_file:
+      - ./advice/.env
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./advice/pg.sql:/docker-entrypoint-initdb.d/create_tables.sql
+    networks:
+      - microservices
+  bff-service:
+    container_name: 'ms-gateway'
+    build: 
+      context: ./gateway
+    restart: always
+    env_file:
+      - ./gateway/.env
+    networks:
+      - microservices
+    depends_on:
+      - 'ms-advice'
+      - 'ms-user'
+    ports:
+      - 8080:8080
+  ui:
+    container_name: 'ms-ui'
+    image: uid4oe/ms-grpc-ui:latest
+    ports:
+      - 3000:80
+    depends_on:
+      - 'bff-service'
+    
+volumes:
+  mongodb:
+  mongoconfig:
+  postgres:
+
+networks:
+  microservices:
+    external: true
